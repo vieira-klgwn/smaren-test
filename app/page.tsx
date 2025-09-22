@@ -1,103 +1,146 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useEffect, useState } from "react";
+import mqtt from "mqtt";
+import { Line } from "react-chartjs-2";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+} from "chart.js";
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
+
+export default function SAMRTENDashboard() {
+  const [inletFlow, setInletFlow] = useState(0);
+  const [outletFlow, setOutletFlow] = useState(0);
+  const [inletVolume, setInletVolume] = useState(0);
+  const [outletVolume, setOutletVolume] = useState(0);
+  const [leakStatus, setLeakStatus] = useState("OK");
+
+  useEffect(() => {
+    const client = mqtt.connect("wss://test.mosquitto.org:8081");
+
+    client.on("connect", () => {
+      console.log("Connected to MQTT broker");
+      client.subscribe("leakage/inletFlow");
+      client.subscribe("leakage/outletFlow");
+      client.subscribe("leakage/inletVolume");
+      client.subscribe("leakage/outletVolume");
+    });
+
+    client.on("message", (topic, message) => {
+      const value = parseFloat(message.toString());
+      if (topic === "leakage/inletFlow") setInletFlow(value);
+      if (topic === "leakage/outletFlow") setOutletFlow(value);
+      if (topic === "leakage/inletVolume") setInletVolume(value);
+      if (topic === "leakage/outletVolume") setOutletVolume(value);
+    });
+
+    return () => {
+      client.end()
+    };
+  }, []);
+
+  useEffect(() => {
+    if (inletFlow - outletFlow > 0.5) setLeakStatus("LEAK");
+    else setLeakStatus("OK");
+  }, [inletFlow, outletFlow]);
+
+  // Fake data for charts
+  const fakeUsageData = Array.from({ length: 10 }, () => Math.random() * 10 + 5);
+  const fakePredictedLeaks = Array.from({ length: 10 }, () => Math.random() * 2);
+
+  const flowChartData = {
+    labels: Array.from({ length: 10 }, (_, i) => `T-${10 - i}s`),
+    datasets: [
+      {
+        label: "Inlet Flow",
+        data: fakeUsageData.map((_, i) => inletFlow + Math.random() * 2 - 1),
+        borderColor: "rgba(0, 123, 255, 0.8)",
+        backgroundColor: "rgba(0, 123, 255, 0.2)",
+        tension: 0.3,
+      },
+      {
+        label: "Outlet Flow",
+        data: fakeUsageData.map((_, i) => outletFlow + Math.random() * 2 - 1),
+        borderColor: "rgba(40, 167, 69, 0.8)",
+        backgroundColor: "rgba(40, 167, 69, 0.2)",
+        tension: 0.3,
+      },
+    ],
+  };
+
+  const riskChartData = {
+    labels: Array.from({ length: 10 }, (_, i) => `Pipe ${i + 1}`),
+    datasets: [
+      {
+        label: "Leak Risk",
+        data: fakePredictedLeaks,
+        backgroundColor: fakePredictedLeaks.map((v) =>
+          v > 1 ? "rgba(220, 53, 69, 0.7)" : "rgba(255, 193, 7, 0.7)"
+        ),
+      },
+    ],
+  };
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div className="w-screen h-screen bg-white text-gray-800 p-6 font-sans overflow-hidden">
+      {/* Header */}
+      <header className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-blue-600">SMARTEN Water Dashboard</h1>
+        <div className="text-lg font-semibold">
+          Status:{" "}
+          <span className={leakStatus === "LEAK" ? "text-red-600" : "text-green-600"}>
+            {leakStatus}
+          </span>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </header>
+
+      {/* Grid Layout */}
+      <div className="grid grid-cols-4 grid-rows-2 gap-4 h-[calc(100%-80px)]">
+        {/* Inlet */}
+        <div className="bg-gray-100 p-4 rounded-xl shadow border border-blue-400 flex flex-col justify-center items-center">
+          <h2 className="text-xl font-bold text-blue-500 mb-2">Inlet Sensor</h2>
+          <p className="text-lg">Flow: <span className="font-mono">{inletFlow.toFixed(2)} L/min</span></p>
+          <p className="text-lg">Volume: <span className="font-mono">{inletVolume.toFixed(2)} L</span></p>
+        </div>
+
+        {/* Outlet */}
+        <div className="bg-gray-100 p-4 rounded-xl shadow border border-green-400 flex flex-col justify-center items-center">
+          <h2 className="text-xl font-bold text-green-500 mb-2">Outlet Sensor</h2>
+          <p className="text-lg">Flow: <span className="font-mono">{outletFlow.toFixed(2)} L/min</span></p>
+          <p className="text-lg">Volume: <span className="font-mono">{outletVolume.toFixed(2)} L</span></p>
+        </div>
+
+        {/* Flow Chart */}
+        <div className="bg-gray-100 p-4 rounded-xl shadow border border-blue-300 col-span-2 row-span-1">
+          <h2 className="text-xl font-bold text-blue-600 mb-2">Real-Time Flow Chart</h2>
+          <Line data={flowChartData} />
+        </div>
+
+        {/* Predicted Leak Risk */}
+        <div className="bg-gray-100 p-4 rounded-xl shadow border border-yellow-400 flex flex-col justify-center items-center">
+          <h2 className="text-xl font-bold text-yellow-600 mb-2">Predicted Leak Risk</h2>
+          <Line data={riskChartData as any} />
+        </div>
+
+        {/* Other Metrics */}
+        <div className="bg-gray-100 p-4 rounded-xl shadow border border-pink-400 flex flex-col justify-center">
+          <h2 className="text-xl font-bold text-pink-600 mb-2">Other Metrics</h2>
+          <ul className="list-disc pl-5 text-sm text-gray-700">
+            <li>Avg. Daily Consumption: 420 L</li>
+            <li>Estimated Loss: 12 L</li>
+            <li>Next Maintenance: 2 days</li>
+            <li>Active Sensors: 4</li>
+          </ul>
+        </div>
+      </div>
     </div>
   );
 }
