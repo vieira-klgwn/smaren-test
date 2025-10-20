@@ -2,14 +2,14 @@
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 
-const char* ssid = "klgwn";
-const char* password = "e11iesag";
+const char* ssid = "RCA-WiFi";
+const char* password = "rca@2019";
 const char* mqtt_server = "157.173.101.159";  // same broker
 
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-#define FLOW_SENSOR_PIN D2  // Inlet sensor pin
+#define FLOW_SENSOR_PIN D3  // Inlet sensor pin
 
 volatile int pulseCount = 0;
 float flowRate = 0.0;

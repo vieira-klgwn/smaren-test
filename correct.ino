@@ -16,7 +16,7 @@ PubSubClient client(espClient);
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org", 3 * 3600, 60000);  // offset +3h (change if needed)
 
-#define FLOW_SENSOR_PIN D2  // Inlet sensor pin
+#define FLOW_SENSOR_PIN D3  // Inlet sensor pin
 
 volatile int pulseCount = 0;
 float flowRate = 0.0;
